@@ -1,3 +1,4 @@
+/** @OnlyCurrentDoc */
 /**
  * Booth app -> Google Sheet.
  * Paste this whole file into your sheet (Extensions > Apps Script), set SECRET below to the same value as
