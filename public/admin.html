@@ -154,6 +154,8 @@
       <input class="field" id="ciFilter" placeholder="Search attendees…" autocomplete="off">
       <ul class="list" id="ciList"></ul>
       <div class="row"><a class="btn" href="/api/admin/export.csv?type=attendance">Download attendance CSV</a></div>
+      <div class="kicker">Google Sheet</div>
+      <div class="row"><div class="hint" id="sheetStatus" style="flex:1"></div><button class="btn small" id="sheetSync" hidden>Sync now</button></div>
       <div class="hint">Tickets from the QR page look like 0042. Staff check-ins look like A003. Type either in the box under the wheel.</div>
     </section>
 
@@ -426,6 +428,20 @@ function renderAttendees(){
   });
 }
 
+function renderSheet(){
+  const s = D.sheets || {}, el = $('sheetStatus');
+  $('sheetSync').hidden = !s.enabled;
+  el.style.color = s.error ? 'var(--danger, #c92a2a)' : '';
+  if (!s.enabled) el.textContent = s.error ? 'Off: ' + s.error : 'Not connected. See "Google Sheet" in the README.';
+  else if (s.error) el.textContent = 'Last sync failed, retrying: ' + s.error;
+  else if (s.pending) el.textContent = 'Syncing…';
+  else el.textContent = s.lastSync ? 'Up to date (last sync ' + fmtTime(s.lastSync) + ')' : 'Waiting for first sync…';
+}
+$('sheetSync').addEventListener('click', async () => {
+  $('sheetStatus').textContent = 'Syncing…';
+  try{ D = await api('/api/admin/sheets/sync', { method: 'POST' }); render(); }catch(e){ setStatus(e.message, true); }
+});
+
 /* ---------- log & reset ---------- */
 function renderLog(){
   const ul = $('logList'); ul.textContent = '';
@@ -470,7 +486,7 @@ function render(){
   D.attendees.slice(-3000).forEach(a => { const o = document.createElement('option'); o.value = a.name; dl.appendChild(o); });
   $('optNeedReg').checked = !!D.config.needReg; $('optOnePer').checked = !!D.config.onePer;
   document.querySelectorAll('input[name=odds]').forEach(r => { r.checked = r.value === D.config.odds; });
-  renderAttendees(); renderLog();
+  renderAttendees(); renderLog(); renderSheet();
   if (!prizesDirty && prizeIds() !== builtIds && !document.activeElement.classList.contains('pname')) buildPrizeTable();
   refreshLight();
 }

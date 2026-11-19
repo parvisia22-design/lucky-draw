@@ -31,6 +31,25 @@ No AI or Anthropic account is used by this app. It is a normal website plus a da
 
 Do not set more than one replica/instance: the app keeps its working copy in memory and assumes a single instance.
 
+## Google Sheet (see who came, after the event)
+
+Every sign-up, staff check-in and draw is copied into a Google Sheet a few seconds after it happens.
+The app keeps working normally if Google is slow or down; it catches up by itself.
+
+1. Create a new Google Sheet (sheets.new). Optional: File, Settings, Time zone = (GMT+07:00) Jakarta.
+2. In the sheet: Extensions, Apps Script. Delete what is there, paste the whole of `google-sheets/Code.gs`.
+3. In that code, replace `PASTE-THE-SECRET-HERE` with a long random secret. Save.
+4. Deploy, New deployment, type Web app. Execute as: Me. Who has access: Anyone. Deploy, allow access,
+   and copy the Web app URL (ends in `/exec`).
+5. On Railway, app service, Variables:
+   - `SHEETS_WEBHOOK_URL` = the Web app URL
+   - `SHEETS_SECRET` = the same secret as in step 3
+6. Open `/admin`, Attendees tab: "Google Sheet: Up to date" means it works. "Sync now" sends everything again.
+
+The sheet gets three tabs: **Summary** (counts), **Attendees** (ticket, time, name, phone, company, source) and **Draws**.
+The app rewrites only its own columns, so you can add your own columns to the right (for example "Follow-up").
+If you change the script later, use Deploy, Manage deployments, Edit, Version: New version (the URL stays the same).
+
 ## On the day
 
 - Visitors scan the QR code, fill in the form and read their ticket number.
@@ -52,6 +71,8 @@ Do not set more than one replica/instance: the app keeps its working copy in mem
 | `ADMIN_PASSWORD` | yes | Staff password for `/admin` |
 | `DATABASE_URL` | yes on Railway | Postgres connection (without it, data is kept in a local file and is lost when the host resets its disk) |
 | `EVENT_NAME` | no | Name shown on the pages (default "Our Booth") |
+| `SHEETS_WEBHOOK_URL` | no | Google Apps Script web app URL (see "Google Sheet") |
+| `SHEETS_SECRET` | with the above | Same secret as in the Apps Script |
 | `BASE_URL` | no | Public address used inside the QR code, only if the automatic address is wrong (for example a custom domain) |
 | `PORT` | no | Set by Railway automatically |
 

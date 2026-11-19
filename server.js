@@ -6,6 +6,7 @@ const path = require('path');
 const QRCode = require('qrcode');
 const L = require('./lib/logic');
 const { Store, FileBackend, PgBackend, emptyState } = require('./lib/store');
+const { SheetSync } = require('./lib/sheets');
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sha = s => crypto.createHash('sha256').update(String(s)).digest();
@@ -17,6 +18,9 @@ function createApp(store, env) {
   const page = name => fs.readFileSync(path.join(__dirname, 'public', name), 'utf8').replace(/\{\{EVENT_NAME\}\}/g, esc(EVENT_NAME));
   const SIGNUP_HTML = page('signup.html');
   const ADMIN_HTML = page('admin.html');
+  const sheets = new SheetSync({ url: env.SHEETS_WEBHOOK_URL, secret: env.SHEETS_SECRET, eventName: EVENT_NAME, getState: () => store.get() });
+  store.onChange(() => sheets.schedule());
+  sheets.schedule();                               // catch up on anything changed while the app was down
 
   const app = express();
   app.disable('x-powered-by');
@@ -93,7 +97,7 @@ function createApp(store, env) {
 
   const view = state => ({
     eventName: EVENT_NAME, attendees: state.attendees, draws: state.draws, prizes: state.prizes,
-    config: state.config, tally: state.tally, serverTime: new Date().toISOString()
+    config: state.config, tally: state.tally, sheets: sheets.status(), serverTime: new Date().toISOString()
   });
   app.get('/api/admin/state', (req, res) => res.json(view(store.get())));
 
@@ -144,6 +148,10 @@ function createApp(store, env) {
     });
     res.json(view(store.get()));
   }));
+  app.post('/api/admin/sheets/sync', wrap(async (req, res) => {
+    await sheets.syncNow();
+    res.json(view(store.get()));
+  }));
   app.get('/api/admin/export.csv', (req, res) => {
     const which = req.query.type === 'draws' ? 'draws' : 'attendance';
     res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="' + which + '.csv"' });
@@ -183,6 +191,7 @@ if (require.main === module) {
     createApp(store, process.env).listen(port, '0.0.0.0', () => {
       console.log('Booth app listening on ' + port + ' (' + (process.env.DATABASE_URL ? 'Postgres' : 'file storage') + ')');
       if (!process.env.ADMIN_PASSWORD) console.warn('ADMIN_PASSWORD is not set: the staff area is disabled.');
+      console.log('Google Sheet sync: ' + (process.env.SHEETS_WEBHOOK_URL ? (process.env.SHEETS_SECRET ? 'on' : 'off (SHEETS_SECRET is not set)') : 'off'));
       if (!process.env.DATABASE_URL) console.warn('DATABASE_URL is not set: data is kept in a local file and will be lost if the host resets its disk.');
     });
   })().catch(e => { console.error(e); process.exit(1); });
