@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{EVENT_NAME}} – staff</title>
+<style>
+  :root{--bg:#f4f5f7;--card:#fff;--ink:#15181d;--muted:#667085;--line:#e3e6ea;--accent:#1971c2;--danger:#c92a2a;--radius:14px}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  button,input,textarea,select{font:inherit;color:inherit}
+  .app{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:20px;max-width:1400px;margin:0 auto;padding:20px;min-height:100%}
+  .stage{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;position:relative}
+  .banner{text-align:center}
+  .kicker{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+  .banner .big{font-size:clamp(22px,3.4vw,36px);font-weight:700;margin-top:2px}
+  .wheel-wrap{position:relative;width:min(100%,64vh,700px);aspect-ratio:1}
+  #wheel{width:100%;height:100%;display:block}
+  .pointer{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:15px solid transparent;border-right:15px solid transparent;border-top:36px solid #15181d;filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));z-index:2}
+  .hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:19%;aspect-ratio:1;border-radius:50%;border:5px solid #fff;background:var(--accent);color:#fff;font-weight:800;font-size:clamp(13px,2.2vw,24px);letter-spacing:.04em;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);z-index:2}
+  .hub:hover:not(:disabled){filter:brightness(1.1)}
+  .hub:disabled{background:#98a2b3;cursor:not-allowed}
+  .whoRow{display:flex;gap:8px;width:min(100%,520px)}
+  .whoRow input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:18px}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .chip{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:20px;padding:4px 11px;font-size:13.5px}
+  .chip.gone{opacity:.45;text-decoration:line-through}
+  .dot{width:12px;height:12px;border-radius:50%;flex:none}
+  .status{min-height:1.4em;text-align:center;color:var(--muted)}
+  .status.err{color:var(--danger);font-weight:600}
+  .conn{position:absolute;top:14px;left:16px;font-size:12px;color:var(--muted)}
+  .conn.bad{color:var(--danger);font-weight:700}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden;max-height:calc(100vh - 40px);position:sticky;top:20px}
+  .tabs{display:flex;border-bottom:1px solid var(--line)}
+  .tab{flex:1;padding:12px 4px;background:none;border:0;border-bottom:3px solid transparent;cursor:pointer;font-weight:600;color:var(--muted);font-size:14px}
+  .tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+  .badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:var(--bg);font-size:12px;margin-left:4px;color:var(--ink)}
+  .pane{padding:16px;overflow:auto;display:none;flex-direction:column;gap:12px}
+  .pane.on{display:flex}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-block;border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 12px;cursor:pointer;font-weight:600;text-decoration:none;color:var(--ink)}
+  .btn:hover:not(:disabled){background:var(--bg)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.1);background:var(--accent)}
+  .btn.danger{color:var(--danger)}
+  .btn.small{padding:3px 8px;font-size:12px}
+  .opt{display:flex;gap:8px;align-items:center;font-size:14px}
+  input[type=number]{width:70px;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  .field{border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%}
+  .hint{font-size:12.5px;color:var(--muted)}
+  .stats{font-size:13px;background:var(--bg);border-radius:9px;padding:8px 10px}
+  .ptable{display:flex;flex-direction:column;gap:6px}
+  .prow{display:grid;grid-template-columns:14px 1fr 70px 52px 28px;gap:8px;align-items:center}
+  .prow.head{font-size:12px;color:var(--muted);font-weight:600}
+  .pname{border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
+  .left{text-align:center;font-weight:700}
+  .left.low{color:var(--danger)}
+  .xbtn{border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+  .xbtn:hover{color:var(--danger)}
+  .list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .list li{border:1px solid var(--line);border-radius:10px;padding:8px 11px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .list .nm{font-weight:700}
+  .list .meta{font-size:12.5px;color:var(--muted)}
+  .tk{font-variant-numeric:tabular-nums;background:var(--bg);border-radius:6px;padding:1px 6px;font-size:12px;margin-right:6px}
+  .empty{color:var(--muted);text-align:center;padding:24px 8px;display:block !important}
+  .tally{display:flex;align-items:center;gap:10px}
+  .tallyNum{font-size:34px;font-weight:800;min-width:70px;text-align:center}
+  .ciForm{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ciForm #ciName,.ciForm .btn{grid-column:1/-1}
+  .overlay{position:fixed;inset:0;background:rgba(15,18,24,.62);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+  .overlay.on{display:flex}
+  .modal{background:#fff;border-radius:20px;padding:32px 28px;max-width:560px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .modal .who{font-size:20px;font-weight:600;margin-top:6px;min-height:1.3em}
+  .modal .prize{font-size:clamp(34px,7vw,64px);font-weight:800;line-height:1.1;margin:12px 0 6px;word-break:break-word}
+  .modal .detail{font-size:16px;color:var(--muted)}
+  .modal .actions{margin-top:24px}
+  .modal .actions .btn{padding:10px 26px;font-size:17px}
+  .link{background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;margin-top:14px;font-size:13px}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:30;width:100%;height:100%}
+  .exit-present{display:none;position:fixed;top:12px;right:12px;z-index:10}
+  .app.present{grid-template-columns:1fr}
+  .app.present .panel{display:none}
+  .app.present .stage{min-height:calc(100vh - 40px)}
+  .app.present .wheel-wrap{width:min(100%,66vh,860px)}
+  .app.present ~ .exit-present{display:block}
+  .stage-tools{position:absolute;top:12px;right:12px}
+  @media (max-width:980px){.app{grid-template-columns:1fr;padding:12px}.panel{position:static;max-height:none}.wheel-wrap{width:min(100%,92vw)}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <main class="stage">
+    <div class="conn" id="conn">Connecting…</div>
+    <div class="stage-tools"><button class="btn small" id="presentBtn">Projector mode</button></div>
+    <div class="banner">
+      <div class="kicker" id="kicker">Luck draw</div>
+      <div class="big" id="bigLine">Spin to win!</div>
+    </div>
+    <div class="wheel-wrap" id="wheelWrap">
+      <div class="pointer"></div>
+      <canvas id="wheel"></canvas>
+      <button class="hub" id="spinBtn" disabled>SPIN</button>
+    </div>
+    <div class="whoRow">
+      <input id="who" list="names" autocomplete="off" placeholder="Ticket number or name – press Enter to spin">
+      <datalist id="names"></datalist>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="status" id="status" aria-live="polite"></div>
+  </main>
+
+  <aside class="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-tab="prizes">Prizes<span class="badge" id="bPrizes">0</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="people">Attendees<span class="badge" id="bPeople">0</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="log">Draw log<span class="badge" id="bLog">0</span></button>
+    </div>
+
+    <section class="pane on" id="pane-prizes">
+      <div class="ptable" id="ptable"></div>
+      <div class="row"><button class="btn" id="addPrize">+ Add prize</button></div>
+      <div class="stats" id="pstats"></div>
+      <div class="kicker">Odds</div>
+      <label class="opt"><input type="radio" name="odds" value="stock" checked> By remaining stock – slices are sized by what's left, so every prize runs out at about the same time</label>
+      <label class="opt"><input type="radio" name="odds" value="equal"> Equal – every prize still in stock gets the same slice</label>
+      <div class="kicker">Rules</div>
+      <label class="opt"><input type="checkbox" id="optNeedReg"> Only signed-in attendees can draw</label>
+      <label class="opt"><input type="checkbox" id="optOnePer"> One draw per attendee</label>
+      <label class="opt"><input type="checkbox" id="optSound" checked> Sound (this device)</label>
+      <div class="hint">"Stock" is the total you have; "Left" is what remains after draws. Changes save automatically.</div>
+    </section>
+
+    <section class="pane" id="pane-people">
+      <div class="kicker" style="margin-top:0">Sign-up link for visitors</div>
+      <div class="row"><input class="field" id="signupUrl" readonly style="flex:1"><a class="btn" href="/qr" target="_blank" rel="noopener">Printable QR</a></div>
+      <div class="kicker">Walk-by tally (stopped but didn't sign up)</div>
+      <div class="tally">
+        <button class="btn" id="tallyMinus" aria-label="Minus one">−</button>
+        <div class="tallyNum" id="tallyNum">0</div>
+        <button class="btn primary" id="tallyPlus" aria-label="Plus one">+1 visitor</button>
+      </div>
+      <div class="kicker">Check in an attendee (staff)</div>
+      <div class="ciForm">
+        <input class="field" id="ciName" placeholder="Name *" autocomplete="off">
+        <input class="field" id="ciPhone" placeholder="Phone / WhatsApp" autocomplete="off" inputmode="tel">
+        <input class="field" id="ciOrg" placeholder="Company / institution" autocomplete="off">
+        <button class="btn primary" id="ciAdd">Check in</button>
+      </div>
+      <div class="status" id="ciMsg" style="text-align:left;min-height:1.2em"></div>
+      <div class="stats" id="ciStats"></div>
+      <input class="field" id="ciFilter" placeholder="Search attendees…" autocomplete="off">
+      <ul class="list" id="ciList"></ul>
+      <div class="row"><a class="btn" href="/api/admin/export.csv?type=attendance">Download attendance CSV</a></div>
+      <div class="hint">Tickets from the QR page look like 0042. Staff check-ins look like A003. Type either in the box under the wheel.</div>
+    </section>
+
+    <section class="pane" id="pane-log">
+      <ul class="list" id="logList"></ul>
+      <div class="row"><a class="btn" href="/api/admin/export.csv?type=draws">Download draw log CSV</a></div>
+      <div class="kicker">Danger zone</div>
+      <div class="row">
+        <select class="field" id="resetWhat" style="width:auto">
+          <option value="draws">Delete all draws (prizes go back in stock)</option>
+          <option value="all">Delete EVERYTHING (attendees, tally, draws)</option>
+        </select>
+        <input class="field" id="resetConfirm" placeholder="Type DELETE" style="width:130px" autocomplete="off">
+        <button class="btn danger" id="resetBtn">Delete</button>
+      </div>
+      <div class="hint" id="resetNote">Download the CSV files first. Deleting cannot be undone.</div>
+    </section>
+  </aside>
+</div>
+
+<button class="btn exit-present" id="exitPresent">Exit projector mode</button>
+<canvas id="confetti"></canvas>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="mPrize">
+  <div class="modal">
+    <div class="kicker">Congratulations</div>
+    <div class="who" id="mWho"></div>
+    <div class="prize" id="mPrize"></div>
+    <div class="detail" id="mDetail"></div>
+    <div class="actions"><button class="btn primary" id="doneBtn">Done</button></div>
+    <button class="link" id="undoBtn">Wrong draw? Undo this one</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ---------- helpers ---------- */
+const TAU = Math.PI * 2;
+const mod = (a, n) => ((a % n) + n) % n;
+const PALETTE = ['#1971c2','#d9480f','#2b8a3e','#862e9c','#c2255c','#0b7285','#e67700','#5f3dc4'];
+const $ = id => document.getElementById(id);
+const colorOf = i => PALETTE[i % PALETTE.length];
+function layout(weights){
+  const total = weights.reduce((a, b) => a + b, 0); let acc = 0;
+  return weights.map(w => { const width = total ? w / total * TAU : 0; const o = { start: acc, width }; acc += width; return o; });
+}
+function sliceAt(rot, lay){
+  const ang = mod(-Math.PI / 2 - rot, TAU);
+  for (let i = 0; i < lay.length; i++){ if (ang >= lay[i].start && ang < lay[i].start + lay[i].width) return i; }
+  return lay.length - 1;
+}
+function targetRotation(i, lay, jitter){ return -Math.PI / 2 - (lay[i].start + lay[i].width / 2 + jitter * lay[i].width); }
+function randFloat(){ const b = new Uint32Array(1); crypto.getRandomValues(b); return b[0] / 4294967296; }
+function fmtTime(iso){ const d = new Date(iso); return isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+let epoch = 0;   // bumped by every change, so a slow background refresh can't overwrite newer data
+async function api(path, opt){
+  opt = opt || {};
+  const write = (opt.method || 'GET') !== 'GET';
+  if (write) epoch++;
+  const r = await fetch(path, { method: opt.method || 'GET', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'booth' },
+    body: opt.body ? JSON.stringify(opt.body) : undefined });
+  if (write) epoch++;
+  let j = {}; try{ j = await r.json(); }catch(e){}
+  if (!r.ok){ const err = new Error(j.error || ('Error ' + r.status)); err.status = r.status; throw err; }
+  return j;
+}
+
+/* ---------- state (the server is the source of truth) ---------- */
+let D = { attendees: [], draws: [], prizes: [], config: { odds: 'stock', onePer: true, needReg: true }, tally: 0 };
+let loaded = false, spinning = false, busy = false, snap = null, rot = 0, lastDraw = null, prizesDirty = false, saveTimer = 0, sound = true;
+
+function remaining(p){ return Math.max(0, (p.total | 0) - D.draws.filter(d => d.prizeId === p.id).length); }
+function totalLeft(){ return D.prizes.reduce((a, p) => a + remaining(p), 0); }
+function segments(){
+  const out = [];
+  D.prizes.forEach((p, i) => { const rem = remaining(p); if (rem > 0) out.push({ prizeId: p.id, name: p.name, ci: i, rem, w: D.config.odds === 'equal' ? 1 : rem }); });
+  return out;
+}
+function canSpin(){ return loaded && !spinning && !busy && totalLeft() > 0; }
+
+/* ---------- wheel ---------- */
+const cv = $('wheel'), ctx = cv.getContext('2d');
+function drawWheel(){
+  const size = cv.clientWidth; if (!size) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(size * dpr)) cv.width = cv.height = Math.round(size * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size, size);
+  const cx = size / 2, cy = size / 2, R = size / 2 - 12;
+  ctx.beginPath(); ctx.arc(cx, cy, R + 8, 0, TAU); ctx.fillStyle = '#15181d'; ctx.fill();
+  const segs = snap || segments();
+  if (!segs.length){
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = '#e9ecef'; ctx.fill();
+    ctx.fillStyle = '#868e96'; ctx.font = '700 ' + Math.round(size / 18) + 'px system-ui,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(loaded ? (D.prizes.length ? 'All prizes are gone' : 'Add prizes') : 'Loading…', cx, cy - size / 3.4);
+    return;
+  }
+  const lay = layout(segs.map(s => s.w));
+  segs.forEach((s, i) => {
+    const a0 = rot + lay[i].start, a1 = a0 + lay[i].width;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, a0, a1); ctx.closePath();
+    ctx.fillStyle = colorOf(s.ci); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.stroke();
+  });
+  const fs = Math.max(12, Math.min(28, R * 0.085));
+  ctx.font = '700 ' + fs + 'px system-ui,sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const maxW = R * 0.62;
+  segs.forEach((s, i) => {
+    if (lay[i].width * R * 0.7 < fs * 1.1) return;
+    let t = s.name;
+    if (ctx.measureText(t).width > maxW){ while (t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1); t += '…'; }
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot + lay[i].start + lay[i].width / 2); ctx.fillText(t, R - 18, 0); ctx.restore();
+  });
+}
+
+/* ---------- sound & confetti ---------- */
+let ac = null;
+function beep(freq, dur, vol, type, when){
+  try{
+    if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = ac.currentTime + (when || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'square'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.02);
+  }catch(e){}
+}
+const tick = () => { if (sound) beep(950, 0.04, 0.035, 'square'); };
+const fanfare = () => { if (sound) [523, 659, 784, 1047].forEach((f, i) => beep(f, 0.28, 0.07, 'triangle', i * 0.13)); };
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fx = $('confetti'), fctx = fx.getContext('2d'); let parts = [], fxRaf = 0;
+function confetti(){
+  if (reduceMotion) return;
+  fx.width = innerWidth; fx.height = innerHeight;
+  const cols = ['#f03e3e','#fab005','#40c057','#228be6','#be4bdb','#fd7e14'];
+  for (let i = 0; i < 160; i++) parts.push({ x: innerWidth / 2 + (Math.random() - .5) * 200, y: innerHeight * .45, vx: (Math.random() - .5) * 16, vy: -Math.random() * 15 - 4,
+    g: .35 + Math.random() * .2, s: 5 + Math.random() * 7, r: Math.random() * TAU, vr: (Math.random() - .5) * .3, c: cols[i % cols.length], life: 0 });
+  cancelAnimationFrame(fxRaf);
+  (function step(){
+    fctx.clearRect(0, 0, fx.width, fx.height);
+    parts.forEach(p => { p.vy += p.g; p.x += p.vx; p.y += p.vy; p.vx *= .99; p.r += p.vr; p.life++;
+      fctx.save(); fctx.translate(p.x, p.y); fctx.rotate(p.r); fctx.fillStyle = p.c; fctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); fctx.restore(); });
+    parts = parts.filter(p => p.y < fx.height + 20 && p.life < 260);
+    if (parts.length) fxRaf = requestAnimationFrame(step); else fctx.clearRect(0, 0, fx.width, fx.height);
+  })();
+}
+
+/* ---------- status ---------- */
+function setStatus(msg, err){ const s = $('status'); s.textContent = msg || ''; s.className = 'status' + (err ? ' err' : ''); }
+function setConn(ok){ const c = $('conn'); c.textContent = ok ? 'Live · ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Offline – retrying…'; c.className = 'conn' + (ok ? '' : ' bad'); }
+
+/* ---------- spin ---------- */
+async function spin(){
+  if (!canSpin()) return;
+  busy = true; setControls(); setStatus('Checking…');
+  let res;
+  try{ res = await api('/api/admin/spin', { method: 'POST', body: { who: $('who').value } }); }
+  catch(e){ busy = false; setStatus(e.message, true); if (e.status === 409 || e.status === 404) refresh(); setControls(); return; }
+  setStatus('Spinning…');
+  const segs = res.segs, lay = layout(segs.map(s => s.w)), from = rot;
+  const delta = mod(targetRotation(res.winner, lay, (randFloat() - 0.5) * 0.7) - from, TAU) + TAU * (6 + Math.floor(randFloat() * 3));
+  const dur = reduceMotion ? 1500 : 6500;
+  snap = segs; spinning = true; setControls();
+  let t0 = null, lastIdx = sliceAt(from, lay), lastTick = 0;
+  function frame(t){
+    if (t0 === null) t0 = t;
+    const p = Math.min(1, (t - t0) / dur);
+    rot = from + delta * (1 - Math.pow(1 - p, 4)); drawWheel();
+    const idx = sliceAt(rot, lay);
+    if (idx !== lastIdx && t - lastTick > 45){ tick(); lastTick = t; }
+    lastIdx = idx;
+    if (p < 1){ requestAnimationFrame(frame); return; }
+    spinning = false; busy = false; snap = null; D = res.state; lastDraw = res.draw;
+    $('mWho').textContent = res.draw.name; $('mPrize').textContent = res.draw.prizeName;
+    const left = remaining(D.prizes.find(q => q.id === res.draw.prizeId) || { id: '', total: 0 });
+    $('mDetail').textContent = left === 0 ? 'That was the last one!' : left + ' left';
+    $('overlay').classList.add('on'); $('doneBtn').focus(); fanfare(); confetti();
+    $('who').value = ''; setStatus(''); render();
+  }
+  requestAnimationFrame(frame);
+}
+function closeModal(){ $('overlay').classList.remove('on'); setControls(); $('who').focus(); }
+$('doneBtn').addEventListener('click', closeModal);
+async function undoDraw(id){
+  try{ D = await api('/api/admin/undo', { method: 'POST', body: { id } }); render(); }
+  catch(e){ setStatus(e.message, true); }
+}
+$('undoBtn').addEventListener('click', async () => { if (lastDraw) await undoDraw(lastDraw.id); closeModal(); });
+
+/* ---------- prizes ---------- */
+const leftEls = new Map();
+function prizeIds(){ return D.prizes.map(p => p.id).join(','); }
+let builtIds = '';
+function buildPrizeTable(){
+  const box = $('ptable'); box.textContent = ''; leftEls.clear(); builtIds = prizeIds();
+  const head = document.createElement('div'); head.className = 'prow head';
+  ['', 'Prize', 'Stock', 'Left', ''].forEach(t => { const d = document.createElement('div'); d.textContent = t; if (t === 'Left') d.style.textAlign = 'center'; head.appendChild(d); });
+  box.appendChild(head);
+  D.prizes.forEach((p, i) => {
+    const row = document.createElement('div'); row.className = 'prow';
+    const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = colorOf(i);
+    const name = document.createElement('input'); name.className = 'pname'; name.value = p.name; name.maxLength = 40; name.setAttribute('aria-label', 'Prize name');
+    name.addEventListener('input', () => { const q = D.prizes.find(x => x.id === p.id); if (q) q.name = name.value; queuePrizeSave(); refreshLight(); });
+    const total = document.createElement('input'); total.type = 'number'; total.min = 0; total.max = 99999; total.value = p.total; total.setAttribute('aria-label', 'Stock');
+    total.addEventListener('input', () => { const v = parseInt(total.value, 10); const q = D.prizes.find(x => x.id === p.id); if (q) q.total = Number.isFinite(v) ? Math.max(0, v) : 0; queuePrizeSave(); refreshLight(); });
+    const left = document.createElement('div'); left.className = 'left'; leftEls.set(p.id, left);
+    const x = document.createElement('button'); x.className = 'xbtn'; x.textContent = '×'; x.title = 'Remove prize'; x.setAttribute('aria-label', 'Remove prize');
+    x.addEventListener('click', () => { if (spinning || busy) return; D.prizes = D.prizes.filter(q => q.id !== p.id); savePrizes(true); });
+    row.append(dot, name, total, left, x); box.appendChild(row);
+  });
+}
+function queuePrizeSave(){ prizesDirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(() => savePrizes(false), 700); }
+async function savePrizes(rebuild){
+  clearTimeout(saveTimer);
+  try{
+    const st = await api('/api/admin/prizes', { method: 'PUT', body: { prizes: D.prizes.map(p => ({ id: p.id, name: p.name, total: p.total })) } });
+    prizesDirty = false; D = st;
+    if (rebuild || prizeIds() !== builtIds) buildPrizeTable();
+    render();
+  }catch(e){ setStatus(e.message, true); }
+}
+$('addPrize').addEventListener('click', async () => {
+  if (spinning || busy) return;
+  D.prizes.push({ id: 'new', name: 'New prize', total: 50 });
+  await savePrizes(true);
+  const ins = document.querySelectorAll('.pname'); const last = ins[ins.length - 1]; if (last){ last.focus(); last.select(); }
+});
+async function saveConfig(patch){
+  try{ D = await api('/api/admin/config', { method: 'PUT', body: patch }); render(); }catch(e){ setStatus(e.message, true); }
+}
+document.querySelectorAll('input[name=odds]').forEach(r => r.addEventListener('change', () => saveConfig({ odds: r.value })));
+$('optNeedReg').addEventListener('change', e => saveConfig({ needReg: e.target.checked }));
+$('optOnePer').addEventListener('change', e => saveConfig({ onePer: e.target.checked }));
+$('optSound').addEventListener('change', e => { sound = e.target.checked; });
+
+/* ---------- attendees ---------- */
+function ciMsg(t, err){ const m = $('ciMsg'); m.textContent = t; m.className = 'status' + (err ? ' err' : ''); m.style.textAlign = 'left'; }
+$('ciAdd').addEventListener('click', addAttendee);
+['ciName', 'ciPhone', 'ciOrg'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addAttendee(); } }));
+async function addAttendee(){
+  try{
+    const r = await api('/api/admin/attendee', { method: 'POST', body: { name: $('ciName').value, phone: $('ciPhone').value, company: $('ciOrg').value } });
+    D = r.state; ['ciName', 'ciPhone', 'ciOrg'].forEach(id => $(id).value = '');
+    ciMsg('Checked in: ' + r.attendee.name + ' – ticket ' + r.attendee.ticket, false); render(); $('ciName').focus();
+  }catch(e){ ciMsg(e.message, true); }
+}
+$('ciFilter').addEventListener('input', renderAttendees);
+$('tallyPlus').addEventListener('click', () => tally(1));
+$('tallyMinus').addEventListener('click', () => tally(-1));
+async function tally(delta){ try{ D = await api('/api/admin/tally', { method: 'POST', body: { delta } }); render(); }catch(e){ setStatus(e.message, true); } }
+function renderAttendees(){
+  $('tallyNum').textContent = D.tally;
+  const qr = D.attendees.filter(a => a.source === 'QR').length, st = D.attendees.length - qr;
+  $('ciStats').textContent = qr + ' QR sign-ups · ' + st + ' staff check-ins · ' + D.tally + ' walk-by tally · ' + D.draws.length + ' prizes given';
+  const q = $('ciFilter').value.trim().toLowerCase();
+  const rows = D.attendees.filter(a => !q || (a.name + ' ' + a.phone + ' ' + a.company + ' ' + a.ticket).toLowerCase().includes(q)).slice().reverse();
+  const ul = $('ciList'); ul.textContent = '';
+  if (!rows.length){ const li = document.createElement('li'); li.className = 'empty'; li.textContent = q ? 'No match.' : 'No attendees yet.'; ul.appendChild(li); }
+  rows.slice(0, 200).forEach(a => {
+    const li = document.createElement('li'), left = document.createElement('div');
+    const nm = document.createElement('div'); nm.className = 'nm';
+    const tk = document.createElement('span'); tk.className = 'tk'; tk.textContent = a.ticket; nm.append(tk, document.createTextNode(a.name));
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = [a.company, a.phone, a.source, fmtTime(a.ts)].filter(Boolean).join(' · ');
+    left.append(nm, meta); li.appendChild(left);
+    if (a.source === 'Staff'){
+      const x = document.createElement('button'); x.className = 'btn small'; x.textContent = 'Remove';
+      x.addEventListener('click', async () => { try{ D = await api('/api/admin/attendee/' + encodeURIComponent(a.id), { method: 'DELETE' }); render(); }catch(e){ ciMsg(e.message, true); } });
+      li.appendChild(x);
+    }
+    ul.appendChild(li);
+  });
+}
+
+/* ---------- log & reset ---------- */
+function renderLog(){
+  const ul = $('logList'); ul.textContent = '';
+  if (!D.draws.length){ const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'No draws yet.'; ul.appendChild(li); }
+  for (let i = D.draws.length - 1; i >= 0; i--){
+    const d = D.draws[i], li = document.createElement('li'), left = document.createElement('div');
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = d.prizeName;
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = '#' + (i + 1) + ' · ' + [d.ticket, d.name || 'No name', fmtTime(d.ts)].filter(Boolean).join(' · ');
+    left.append(nm, meta);
+    const u = document.createElement('button'); u.className = 'btn small'; u.textContent = 'Undo';
+    u.addEventListener('click', () => { if (!spinning && !busy) undoDraw(d.id); });
+    li.append(left, u); ul.appendChild(li);
+  }
+}
+$('resetBtn').addEventListener('click', async () => {
+  try{
+    D = await api('/api/admin/reset', { method: 'POST', body: { what: $('resetWhat').value, confirm: $('resetConfirm').value.trim() } });
+    $('resetConfirm').value = ''; $('resetNote').textContent = 'Deleted.'; render();
+  }catch(e){ $('resetNote').textContent = e.message; }
+});
+
+/* ---------- rendering ---------- */
+function setControls(){ $('spinBtn').disabled = !canSpin(); }
+function refreshLight(){
+  const left = totalLeft(), stockTotal = D.prizes.reduce((a, p) => a + (p.total | 0), 0);
+  D.prizes.forEach(p => { const el = leftEls.get(p.id); if (el){ const r = remaining(p); el.textContent = r; el.classList.toggle('low', r <= 5); } });
+  $('bPrizes').textContent = left;
+  $('pstats').textContent = left + ' of ' + stockTotal + ' prizes left · ' + D.draws.length + ' drawn';
+  $('kicker').textContent = left ? 'Prizes left: ' + left : 'Luck draw';
+  $('bigLine').textContent = !loaded ? 'Loading…' : (left ? 'Spin to win!' : 'All prizes are gone');
+  const lg = $('legend'); lg.textContent = '';
+  D.prizes.forEach((p, i) => {
+    const r = remaining(p), chip = document.createElement('span'); chip.className = 'chip' + (r ? '' : ' gone');
+    const d = document.createElement('span'); d.className = 'dot'; d.style.background = colorOf(i);
+    chip.append(d, document.createTextNode(p.name + ' · ' + r)); lg.appendChild(chip);
+  });
+  if (!spinning){ drawWheel(); setControls(); }
+}
+function render(){
+  $('bPeople').textContent = D.attendees.length; $('bLog').textContent = D.draws.length;
+  const dl = $('names'); dl.textContent = '';
+  D.attendees.slice(-3000).forEach(a => { const o = document.createElement('option'); o.value = a.name; dl.appendChild(o); });
+  $('optNeedReg').checked = !!D.config.needReg; $('optOnePer').checked = !!D.config.onePer;
+  document.querySelectorAll('input[name=odds]').forEach(r => { r.checked = r.value === D.config.odds; });
+  renderAttendees(); renderLog();
+  if (!prizesDirty && prizeIds() !== builtIds && !document.activeElement.classList.contains('pname')) buildPrizeTable();
+  refreshLight();
+}
+
+/* ---------- polling ---------- */
+async function refresh(){
+  if (spinning || busy || prizesDirty) return;
+  const e0 = epoch;
+  try{
+    const st = await api('/api/admin/state');
+    if (spinning || busy || prizesDirty || e0 !== epoch) return;
+    D = st; loaded = true; setConn(true); render();
+  }catch(e){ setConn(false); }
+}
+
+/* ---------- events ---------- */
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', String(x === t)));
+  document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.id === 'pane-' + t.dataset.tab));
+}));
+$('spinBtn').addEventListener('click', spin);
+$('who').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); spin(); } });
+$('who').addEventListener('input', () => setStatus(''));
+document.addEventListener('keydown', e => {
+  if ($('overlay').classList.contains('on')) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (e.key === 'Escape' && $('app').classList.contains('present')){ setPresent(false); return; }
+  if (e.key === ' ' && !['textarea', 'input', 'button', 'select'].includes(tag)){ e.preventDefault(); spin(); }
+});
+function setPresent(on){
+  $('app').classList.toggle('present', on);
+  try{
+    if (on){ const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (p && p.catch) p.catch(() => {}); }
+    else if (document.fullscreenElement){ const p = document.exitFullscreen(); if (p && p.catch) p.catch(() => {}); }
+  }catch(e){}
+  requestAnimationFrame(drawWheel);
+}
+$('presentBtn').addEventListener('click', () => setPresent(true));
+$('exitPresent').addEventListener('click', () => setPresent(false));
+new ResizeObserver(() => drawWheel()).observe($('wheelWrap'));
+
+/* ---------- init ---------- */
+$('signupUrl').value = location.origin + '/';
+drawWheel();
+refresh().then(() => { buildPrizeTable(); render(); });
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>

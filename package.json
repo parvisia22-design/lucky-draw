@@ -1,0 +1,18 @@
+{
+  "name": "booth-signup-and-luckdraw",
+  "version": "1.0.0",
+  "description": "Exhibition booth: QR sign-up (attendance record) and luck-draw roulette in one app",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "qrcode": "^1.5.3"
+  }
+}
