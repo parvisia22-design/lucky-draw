@@ -16,7 +16,7 @@
   .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px}
   label{display:block;font-weight:600;font-size:14px;margin:0 0 4px}
   .f{margin-bottom:14px}
-  input[type=text],input[type=tel]{width:100%;border:1px solid var(--line);border-radius:10px;padding:13px 12px;font-size:17px}
+  input[type=text],input[type=tel],input[type=email]{width:100%;border:1px solid var(--line);border-radius:10px;padding:13px 12px;font-size:17px}
   input:focus{outline:2px solid var(--accent);outline-offset:1px}
   .opt{font-weight:400;color:var(--muted)}
   .consent{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--muted);margin:6px 0 16px;font-weight:400}
@@ -46,6 +46,8 @@
       <input id="name" type="text" autocomplete="name" maxlength="80" required></div>
     <div class="f"><label for="phone">Phone / WhatsApp</label>
       <input id="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="30" placeholder="0812…" required></div>
+    <div class="f"><label for="email">Email</label>
+      <input id="email" type="email" inputmode="email" autocomplete="email" maxlength="120" placeholder="name@company.com" required></div>
     <div class="f"><label for="company">Company / institution <span class="opt">(optional)</span></label>
       <input id="company" type="text" autocomplete="organization" maxlength="80"></div>
     <div class="hp" aria-hidden="true"><label>Website <input id="website" type="text" tabindex="-1" autocomplete="off"></label></div>
@@ -70,10 +72,11 @@
   function busy(on){ go.disabled = on; go.textContent = on ? 'Saving…' : 'Sign in'; }
   form.addEventListener('submit', function(e){
     e.preventDefault(); err.textContent = '';
-    var data = { name: $('name').value.trim(), phone: $('phone').value.trim(), company: $('company').value.trim(),
+    var data = { name: $('name').value.trim(), phone: $('phone').value.trim(), email: $('email').value.trim(), company: $('company').value.trim(),
                  consent: $('consent').checked, website: $('website').value };
     if (!data.name){ err.textContent = 'Please enter your name.'; $('name').focus(); return; }
     if (data.phone.replace(/\D/g, '').length < 8){ err.textContent = 'Please enter a valid phone number.'; $('phone').focus(); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)){ err.textContent = 'Please enter a valid email address.'; $('email').focus(); return; }
     if (!data.consent){ err.textContent = 'Please tick the consent box.'; return; }
     busy(true);
     fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })

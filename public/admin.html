@@ -69,7 +69,7 @@
   .tally{display:flex;align-items:center;gap:10px}
   .tallyNum{font-size:34px;font-weight:800;min-width:70px;text-align:center}
   .ciForm{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .ciForm #ciName,.ciForm .btn{grid-column:1/-1}
+  .ciForm #ciName,.ciForm #ciOrg,.ciForm .btn{grid-column:1/-1}
   .overlay{position:fixed;inset:0;background:rgba(15,18,24,.62);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
   .overlay.on{display:flex}
   .modal{background:#fff;border-radius:20px;padding:32px 28px;max-width:560px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}
@@ -146,6 +146,7 @@
       <div class="ciForm">
         <input class="field" id="ciName" placeholder="Name *" autocomplete="off">
         <input class="field" id="ciPhone" placeholder="Phone / WhatsApp" autocomplete="off" inputmode="tel">
+        <input class="field" id="ciEmail" placeholder="Email" autocomplete="off" inputmode="email">
         <input class="field" id="ciOrg" placeholder="Company / institution" autocomplete="off">
         <button class="btn primary" id="ciAdd">Check in</button>
       </div>
@@ -393,11 +394,11 @@ $('optSound').addEventListener('change', e => { sound = e.target.checked; });
 /* ---------- attendees ---------- */
 function ciMsg(t, err){ const m = $('ciMsg'); m.textContent = t; m.className = 'status' + (err ? ' err' : ''); m.style.textAlign = 'left'; }
 $('ciAdd').addEventListener('click', addAttendee);
-['ciName', 'ciPhone', 'ciOrg'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addAttendee(); } }));
+['ciName', 'ciPhone', 'ciEmail', 'ciOrg'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addAttendee(); } }));
 async function addAttendee(){
   try{
-    const r = await api('/api/admin/attendee', { method: 'POST', body: { name: $('ciName').value, phone: $('ciPhone').value, company: $('ciOrg').value } });
-    D = r.state; ['ciName', 'ciPhone', 'ciOrg'].forEach(id => $(id).value = '');
+    const r = await api('/api/admin/attendee', { method: 'POST', body: { name: $('ciName').value, phone: $('ciPhone').value, email: $('ciEmail').value, company: $('ciOrg').value } });
+    D = r.state; ['ciName', 'ciPhone', 'ciEmail', 'ciOrg'].forEach(id => $(id).value = '');
     ciMsg('Checked in: ' + r.attendee.name + ' – ticket ' + r.attendee.ticket, false); render(); $('ciName').focus();
   }catch(e){ ciMsg(e.message, true); }
 }
@@ -410,14 +411,14 @@ function renderAttendees(){
   const qr = D.attendees.filter(a => a.source === 'QR').length, st = D.attendees.length - qr;
   $('ciStats').textContent = qr + ' QR sign-ups · ' + st + ' staff check-ins · ' + D.tally + ' walk-by tally · ' + D.draws.length + ' prizes given';
   const q = $('ciFilter').value.trim().toLowerCase();
-  const rows = D.attendees.filter(a => !q || (a.name + ' ' + a.phone + ' ' + a.company + ' ' + a.ticket).toLowerCase().includes(q)).slice().reverse();
+  const rows = D.attendees.filter(a => !q || (a.name + ' ' + a.phone + ' ' + (a.email || '') + ' ' + a.company + ' ' + a.ticket).toLowerCase().includes(q)).slice().reverse();
   const ul = $('ciList'); ul.textContent = '';
   if (!rows.length){ const li = document.createElement('li'); li.className = 'empty'; li.textContent = q ? 'No match.' : 'No attendees yet.'; ul.appendChild(li); }
   rows.slice(0, 200).forEach(a => {
     const li = document.createElement('li'), left = document.createElement('div');
     const nm = document.createElement('div'); nm.className = 'nm';
     const tk = document.createElement('span'); tk.className = 'tk'; tk.textContent = a.ticket; nm.append(tk, document.createTextNode(a.name));
-    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = [a.company, a.phone, a.source, fmtTime(a.ts)].filter(Boolean).join(' · ');
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = [a.company, a.phone, a.email, a.source, fmtTime(a.ts)].filter(Boolean).join(' · ');
     left.append(nm, meta); li.appendChild(left);
     if (a.source === 'Staff'){
       const x = document.createElement('button'); x.className = 'btn small'; x.textContent = 'Remove';

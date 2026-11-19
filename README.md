@@ -46,7 +46,7 @@ The app keeps working normally if Google is slow or down; it catches up by itsel
    - `SHEETS_SECRET` = the same secret as in step 3
 6. Open `/admin`, Attendees tab: "Google Sheet: Up to date" means it works. "Sync now" sends everything again.
 
-The sheet gets three tabs: **Summary** (counts), **Attendees** (ticket, time, name, phone, company, source) and **Draws**.
+The sheet gets three tabs: **Summary** (counts), **Attendees** (ticket, time, name, phone, email, company, source) and **Draws**.
 The app rewrites only its own columns, so you can add your own columns to the right (for example "Follow-up").
 If you change the script later, use Deploy, Manage deployments, Edit, Version: New version (the URL stays the same).
 
