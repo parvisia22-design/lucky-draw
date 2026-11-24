@@ -18,6 +18,7 @@ function createApp(store, env) {
   const page = name => fs.readFileSync(path.join(__dirname, 'public', name), 'utf8').replace(/\{\{EVENT_NAME\}\}/g, esc(EVENT_NAME));
   const SIGNUP_HTML = page('signup.html');
   const ADMIN_HTML = page('admin.html');
+  const QR_HTML = page('qr.html');
   const sheets = new SheetSync({ url: env.SHEETS_WEBHOOK_URL, secret: env.SHEETS_SECRET, eventName: EVENT_NAME, getState: () => store.get() });
   store.onChange(() => sheets.schedule());
   sheets.schedule();                               // catch up on anything changed while the app was down
@@ -43,6 +44,7 @@ function createApp(store, env) {
   /* ---------- public ---------- */
   app.get('/healthz', (req, res) => res.json({ ok: true }));
   app.get('/', (req, res) => res.type('html').send(SIGNUP_HTML));
+  app.use('/brand', express.static(path.join(__dirname, 'public', 'brand'), { maxAge: '7d' }));
 
   // simple per-IP limit for sign-ups (a whole venue can share one IP, so it is generous)
   const hits = new Map();
@@ -62,10 +64,7 @@ function createApp(store, env) {
   app.get('/qr', wrap(async (req, res) => {
     const url = baseUrl(req) + '/';
     const svg = await QRCode.toString(url, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' });
-    res.type('html').send('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>QR code</title>' +
-      '<style>body{font-family:system-ui,sans-serif;text-align:center;margin:0;padding:24px}h1{font-size:clamp(28px,6vw,56px);margin:0 0 8px}' +
-      'svg{width:min(80vw,70vh);height:auto}p{font-size:20px;color:#444}@media print{button{display:none}}</style></head><body>' +
-      '<h1>Scan to join the luck draw</h1><p>' + esc(EVENT_NAME) + '</p>' + svg + '<p>' + esc(url) + '</p><button onclick="window.print()">Print</button></body></html>');
+    res.type('html').send(QR_HTML.replace('{{QR_SVG}}', () => svg).replace('{{URL}}', () => esc(url)));
   }));
 
   /* ---------- admin (HTTP Basic auth) ---------- */
