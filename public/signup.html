@@ -33,6 +33,15 @@
   .done .num{font-size:72px;font-weight:800;letter-spacing:.04em;line-height:1.1;margin:6px 0;color:var(--accent);font-variant-numeric:tabular-nums}
   .done h2{margin:0 0 4px}
   .done .go{background:var(--tint);color:var(--ink);border-radius:12px;padding:12px;margin-top:14px;font-weight:600}
+  .wheelWrap{position:relative;width:min(100%,320px);aspect-ratio:1;margin:16px auto 14px}
+  .wheelWrap canvas{width:100%;height:100%;display:block}
+  .pointer{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:30px solid var(--ink);filter:drop-shadow(0 2px 2px rgba(0,0,0,.3));z-index:2}
+  .result{border:3px solid var(--accent);border-radius:16px;padding:16px 12px;margin-top:14px;background:#fff}
+  .result .k{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  .result .prize{font-size:34px;font-weight:800;line-height:1.15;margin:6px 0;color:var(--ink);word-break:break-word}
+  .result .bonus{font-size:18px;font-weight:700;color:var(--accent);min-height:0}
+  .result .meta{font-size:14px;color:var(--muted);margin-top:8px}
+  button.link{background:none;color:var(--muted);font-size:13.5px;font-weight:400;text-decoration:underline;padding:10px;margin-top:8px}
   .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
   .hidden{display:none}
 </style>
@@ -75,13 +84,81 @@
     <h2 id="hello"></h2>
     <div class="tick">Your ticket number</div>
     <div class="num" id="ticket"></div>
-    <div class="go">Show this screen to our staff to spin the wheel.</div>
+    <div id="spinArea" hidden>
+      <div class="wheelWrap"><div class="pointer"></div><canvas id="gw"></canvas></div>
+      <button type="button" id="spinBtn">🎡 Spin the wheel</button>
+      <p class="err" id="spinErr" role="alert" style="margin:10px 0 0"></p>
+    </div>
+    <div class="result" id="result" hidden>
+      <div class="k">🎉 You got</div>
+      <div class="prize" id="rPrize"></div>
+      <div class="bonus" id="rBonus"></div>
+      <div class="meta" id="rMeta"></div>
+    </div>
+    <div class="go" id="goText"></div>
+    <button type="button" class="link" id="notMe">Not you? Sign up someone else on this phone</button>
   </section>
 </div>
 
+<script src="/js/guest-wheel.js"></script>
 <script>
 (function(){
   var $ = function(id){ return document.getElementById(id); };
+  var KEY = 'boothTicket', me = null, wheel = null;
+  function load(){ try{ return JSON.parse(localStorage.getItem(KEY) || 'null'); }catch(e){ return null; } }
+  function save(v){ try{ if (v) localStorage.setItem(KEY, JSON.stringify(v)); else localStorage.removeItem(KEY); }catch(e){} }
+  function post(url, body){
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function(r){ return r.json().then(function(j){ if (!r.ok) { var e = new Error(j.error || 'Something went wrong.'); e.status = r.status; throw e; } return j; }); });
+  }
+  function fmtTime(iso){ var d = new Date(iso); return isNaN(d) ? '' : String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+
+  /** the ticket screen: ticket, then the wheel (if guests may spin and haven't yet) or what they got */
+  function showTicket(s, greeting){
+    $('hello').textContent = greeting || ('Hi, ' + s.name + '!');
+    $('ticket').textContent = s.ticket;
+    form.classList.add('hidden'); $('done').classList.remove('hidden');
+    var got = s.got || [];
+    var main = got.filter(function(g){ return g.how !== 'Bonus'; }), extra = got.filter(function(g){ return g.how === 'Bonus'; });
+    $('result').hidden = !got.length;
+    if (got.length){
+      $('rPrize').textContent = main.map(function(g){ return g.prizeName; }).join(', ') || extra.map(function(g){ return g.prizeName; }).join(', ');
+      $('rBonus').textContent = main.length && extra.length ? '+ free ' + extra.map(function(g){ return g.prizeName; }).join(', ') : '';
+      $('rMeta').textContent = s.ticket + ' · ' + s.name + ' · ' + fmtTime(got[0].ts);
+    }
+    var canSpin = s.selfSpin && !got.length && s.segs && s.segs.length;
+    $('spinArea').hidden = !canSpin;
+    if (canSpin){
+      if (!wheel) wheel = window.GuestWheel.create($('gw'));
+      wheel.set(s.segs);
+    }
+    $('goText').textContent = got.length ? 'Show this screen to our staff to collect your prize.'
+      : canSpin ? 'Spin the wheel, then show your prize to our staff.'
+      : 'Show this screen to our staff to spin the wheel.';
+  }
+  function refreshMe(greeting){
+    var saved = load(); if (!saved) return Promise.resolve();
+    return post('/api/guest/me', saved).then(function(s){ me = s; showTicket(s, greeting); })
+      .catch(function(e){ if (e.status === 403){ save(null); } });
+  }
+  $('spinBtn').addEventListener('click', function(){
+    var saved = load(), btn = $('spinBtn'); if (!saved) return;
+    btn.disabled = true; btn.textContent = 'Spinning…'; $('spinErr').textContent = '';
+    post('/api/guest/spin', saved).then(function(r){
+      return wheel.spinTo(r.segs, r.winner).then(function(){
+        me.got = [{ prizeName: r.draw.prizeName, how: 'Phone', ts: r.draw.ts }].concat(r.bonus ? [{ prizeName: r.bonus.prizeName, how: 'Bonus', ts: r.draw.ts }] : []);
+        showTicket(me, '🎉 Congratulations, ' + me.name + '!');
+        if (navigator.vibrate) navigator.vibrate([80, 60, 160]);
+        $('result').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }).catch(function(e){
+      btn.disabled = false; btn.textContent = '🎡 Spin the wheel'; $('spinErr').textContent = e.message;
+      if (e.status === 409 || e.status === 403) refreshMe();
+    });
+  });
+  $('notMe').addEventListener('click', function(){
+    save(null); me = null; form.reset(); $('done').classList.add('hidden'); form.classList.remove('hidden'); window.scrollTo(0, 0);
+  });
   var form = $('form'), err = $('err'), go = $('go');
   function busy(on){ go.disabled = on; go.textContent = on ? 'Saving…' : 'Sign in'; }
   form.addEventListener('submit', function(e){
@@ -98,12 +175,14 @@
       .then(function(x){
         busy(false);
         if (!x.ok || !x.j.ok){ err.textContent = (x.j && x.j.error) || 'Something went wrong. Please try again.'; return; }
-        $('hello').textContent = (x.j.existing ? 'Welcome back, ' : 'Thank you, ') + x.j.name + '!';
-        $('ticket').textContent = x.j.ticket;
-        form.classList.add('hidden'); $('done').classList.remove('hidden'); window.scrollTo(0, 0);
+        var greeting = (x.j.existing ? 'Welcome back, ' : 'Thank you, ') + x.j.name + '!';
+        showTicket({ ticket: x.j.ticket, name: x.j.name, got: [], selfSpin: false }, greeting);
+        window.scrollTo(0, 0);
+        if (x.j.token){ save({ ticket: x.j.ticket, token: x.j.token }); refreshMe(greeting); }
       })
       .catch(function(){ busy(false); err.textContent = 'Could not save – check your connection and try again.'; });
   });
+  refreshMe();   // back on this phone later: show the ticket (and prize) again
 })();
 </script>
 </body>

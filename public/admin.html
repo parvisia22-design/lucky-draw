@@ -171,6 +171,7 @@
       <div class="kicker">Rules</div>
       <label class="opt"><input type="checkbox" id="optNeedReg"> Only signed-in attendees can draw</label>
       <label class="opt"><input type="checkbox" id="optOnePer"> One draw per attendee</label>
+      <label class="opt"><input type="checkbox" id="optSelfSpin"> Guests can spin on their own phone after signing up (once per ticket)</label>
       <label class="opt"><input type="checkbox" id="optSound" checked> Sound (this device)</label>
       <div class="hint">"Stock" is the total you have; "Left" is what remains after draws. Changes save automatically.</div>
     </section>
@@ -443,6 +444,7 @@ async function saveConfig(patch){
 document.querySelectorAll('input[name=odds]').forEach(r => r.addEventListener('change', () => saveConfig({ odds: r.value })));
 $('optNeedReg').addEventListener('change', e => saveConfig({ needReg: e.target.checked }));
 $('optOnePer').addEventListener('change', e => saveConfig({ onePer: e.target.checked }));
+$('optSelfSpin').addEventListener('change', e => saveConfig({ selfSpin: e.target.checked }));
 $('optBonus').addEventListener('change', e => saveConfig({ bonus: e.target.value }));
 function renderBonusSelect(){
   const sel = $('optBonus'); if (document.activeElement === sel) return;
@@ -598,7 +600,7 @@ function render(){
   $('bPeople').textContent = D.attendees.length; $('bLog').textContent = D.draws.length;
   const dl = $('names'); dl.textContent = '';
   D.attendees.slice(-3000).forEach(a => { const o = document.createElement('option'); o.value = a.name; dl.appendChild(o); });
-  $('optNeedReg').checked = !!D.config.needReg; $('optOnePer').checked = !!D.config.onePer;
+  $('optNeedReg').checked = !!D.config.needReg; $('optOnePer').checked = !!D.config.onePer; $('optSelfSpin').checked = !!D.config.selfSpin;
   document.querySelectorAll('input[name=odds]').forEach(r => { r.checked = r.value === D.config.odds; });
   renderAttendees(); renderLog(); renderSheet(); renderGiftPickers(); renderBonusSelect();
   if (!prizesDirty && prizeIds() !== builtIds && !document.activeElement.classList.contains('pname')) buildPrizeTable();

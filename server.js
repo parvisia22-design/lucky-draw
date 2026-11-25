@@ -45,16 +45,31 @@ function createApp(store, env) {
   app.get('/healthz', (req, res) => res.json({ ok: true }));
   app.get('/', (req, res) => res.type('html').send(SIGNUP_HTML));
   app.use('/brand', express.static(path.join(__dirname, 'public', 'brand'), { maxAge: '7d' }));
+  app.use('/js', express.static(path.join(__dirname, 'public', 'js'), { maxAge: '1h' }));
 
   // simple per-IP limit for sign-ups (a whole venue can share one IP, so it is generous)
   const hits = new Map();
   setInterval(() => hits.clear(), 60000).unref();
-  app.post('/api/register', wrap(async (req, res) => {
+  const limit = req => {
     const n = (hits.get(req.ip) || 0) + 1; hits.set(req.ip, n);
     if (n > 600) throw new L.HttpError(429, 'Too many requests. Please wait a moment.');
-    if (req.body && req.body.website) return res.json({ ok: true, ticket: '0000', name: 'Thank you', existing: false });   // honeypot
+  };
+  app.post('/api/register', wrap(async (req, res) => {
+    limit(req);
+    if (req.body && req.body.website) return res.json({ ok: true, ticket: '0000', name: 'Thank you', existing: false, token: '' });   // honeypot
     const r = await store.mutate(draft => L.register(draft, req.body));
-    res.json({ ok: true, ticket: r.attendee.ticket, name: r.attendee.name, existing: r.existing });
+    res.json({ ok: true, ticket: r.attendee.ticket, name: r.attendee.name, existing: r.existing, token: r.attendee.token });
+  }));
+  // guest's own phone: status and one spin, proven by the ticket's secret token
+  app.post('/api/guest/me', (req, res, next) => {
+    try { limit(req); res.json(L.guestStatus(store.get(), req.body && req.body.ticket, req.body && req.body.token)); }
+    catch (e) { next(e); }
+  });
+  app.post('/api/guest/spin', wrap(async (req, res) => {
+    limit(req);
+    const r = await store.mutate(draft => L.guestSpin(draft, req.body && req.body.ticket, req.body && req.body.token));
+    res.json({ draw: { ticket: r.draw.ticket, name: r.draw.name, prizeName: r.draw.prizeName, ts: r.draw.ts },
+      bonus: r.bonus ? { prizeName: r.bonus.prizeName } : null, segs: r.segs, winner: r.winner });
   }));
 
   app.get('/qr.svg', wrap(async (req, res) => {
@@ -95,7 +110,7 @@ function createApp(store, env) {
   app.get('/admin', (req, res) => res.type('html').send(ADMIN_HTML));
 
   const view = state => ({
-    eventName: EVENT_NAME, attendees: state.attendees, draws: state.draws, prizes: state.prizes,
+    eventName: EVENT_NAME, attendees: state.attendees.map(({ token, ...a }) => a), draws: state.draws, prizes: state.prizes,
     config: state.config, tally: state.tally, sheets: sheets.status(), serverTime: new Date().toISOString()
   });
   app.get('/api/admin/state', (req, res) => res.json(view(store.get())));
