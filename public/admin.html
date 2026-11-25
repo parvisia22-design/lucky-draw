@@ -73,8 +73,18 @@
   .tally{display:flex;align-items:center;gap:10px}
   .tallyNum{font-size:34px;font-weight:800;min-width:70px;text-align:center}
   .ciForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
-  .ciForm #ciName,.ciForm #ciOrg,.ciForm #ciPrize,.ciForm .btn{grid-column:1/-1}
-  .giveForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px}
+  .ciForm #ciName,.ciForm #ciOrg,.ciForm .gifts,.ciForm .btn{grid-column:1/-1}
+  /* gift picker: tick any number of souvenirs */
+  .gifts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .gifts .lbl{font-size:12.5px;color:var(--muted);width:100%}
+  .pick{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:20px;padding:5px 11px;cursor:pointer;font-size:14px;user-select:none;background:#fff}
+  .pick input{accent-color:#f58746;margin:0;width:16px;height:16px}
+  .pick:has(input:checked){border-color:#f58746;background:#fef0e7;font-weight:600}
+  .pick .n{color:var(--muted);font-size:12px;font-weight:400}
+  .pkgBtn{border:1px dashed #f58746;color:#c25a1c;background:#fff;border-radius:20px;padding:5px 11px;cursor:pointer;font-weight:600;font-size:14px}
+  .pkgBtn:disabled{opacity:.45;cursor:not-allowed}
+  .giveForm{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+  .giveForm .gifts{grid-column:1/-1;order:-1}
   /* a long option ("Full package: …") must never widen the panel: Safari sizes selects to their longest option */
   .field{min-width:0;max-width:100%}
   select.field{text-overflow:ellipsis}
@@ -180,7 +190,7 @@
         <input class="field" id="ciPhone" placeholder="Phone / WhatsApp" autocomplete="off" inputmode="tel">
         <input class="field" id="ciEmail" placeholder="Email" autocomplete="off" inputmode="email">
         <input class="field" id="ciOrg" placeholder="Company / institution" autocomplete="off">
-        <select class="field prizeSel" id="ciPrize" data-none="No souvenir now (can spin the wheel)"></select>
+        <div class="gifts" id="ciGifts" data-label="Souvenirs to give now (optional – leave empty if they will spin the wheel):"></div>
         <button class="btn primary" id="ciAdd">Check in</button>
       </div>
       <div class="status" id="ciMsg" style="text-align:left;min-height:1.2em"></div>
@@ -188,7 +198,7 @@
       <div class="kicker">Give a souvenir (no spin)</div>
       <div class="giveForm">
         <input class="field" id="gvWho" list="names" placeholder="Ticket or name" autocomplete="off">
-        <select class="field prizeSel" id="gvPrize" data-none="Choose souvenir…"></select>
+        <div class="gifts" id="gvGifts" data-label="Tick one or more souvenirs:"></div>
         <button class="btn primary" id="gvBtn">Give</button>
       </div>
       <div class="status" id="gvMsg" style="text-align:left;min-height:1.2em"></div>
@@ -448,8 +458,8 @@ $('ciAdd').addEventListener('click', addAttendee);
 ['ciName', 'ciPhone', 'ciEmail', 'ciOrg'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addAttendee(); } }));
 async function addAttendee(){
   try{
-    const r = await api('/api/admin/attendee', { method: 'POST', body: { name: $('ciName').value, phone: $('ciPhone').value, email: $('ciEmail').value, company: $('ciOrg').value, prizeId: $('ciPrize').value } });
-    D = r.state; ['ciName', 'ciPhone', 'ciEmail', 'ciOrg', 'ciPrize'].forEach(id => $(id).value = '');
+    const r = await api('/api/admin/attendee', { method: 'POST', body: { name: $('ciName').value, phone: $('ciPhone').value, email: $('ciEmail').value, company: $('ciOrg').value, prizeIds: [...picks.ciGifts] } });
+    D = r.state; ['ciName', 'ciPhone', 'ciEmail', 'ciOrg'].forEach(id => $(id).value = ''); picks.ciGifts.clear();
     ciMsg('', false); $('ciTicketNum').textContent = r.attendee.ticket; $('ciTicketWho').textContent = r.attendee.name; $('ciTicket').hidden = false;
     $('ciTicketGift').textContent = r.draw ? 'Souvenir given: ' + r.draw.prizeName : '';
     render(); $('ciName').focus();
@@ -459,26 +469,41 @@ $('ciFilter').addEventListener('input', renderAttendees);
 function gvMsg(t, err){ const m = $('gvMsg'); m.textContent = t; m.className = 'status' + (err ? ' err' : ''); m.style.textAlign = 'left'; }
 async function giveSouvenir(){
   try{
-    const r = await api('/api/admin/give', { method: 'POST', body: { who: $('gvWho').value, prizeId: $('gvPrize').value } });
-    D = r.state; $('gvWho').value = ''; $('gvPrize').value = '';
+    const r = await api('/api/admin/give', { method: 'POST', body: { who: $('gvWho').value, prizeIds: [...picks.gvGifts] } });
+    D = r.state; $('gvWho').value = ''; picks.gvGifts.clear();
     gvMsg('Given: ' + r.draw.prizeName + ' to ' + (r.draw.ticket ? r.draw.ticket + ' ' : '') + r.draw.name, false); render(); $('gvWho').focus();
   }catch(e){ gvMsg(e.message, true); }
 }
 $('gvBtn').addEventListener('click', giveSouvenir);
 $('gvWho').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); giveSouvenir(); } });
-/** fills both souvenir dropdowns with prizes still in stock, keeping the current choice */
-function renderPrizeSelects(){
-  document.querySelectorAll('.prizeSel').forEach(sel => {
-    if (document.activeElement === sel) return;
-    const keep = sel.value; sel.textContent = '';
-    const none = document.createElement('option'); none.value = ''; none.textContent = sel.dataset.none; sel.appendChild(none);
+/** ticked souvenirs per picker; kept here so the 4-second refresh does not lose them */
+const picks = { ciGifts: new Set(), gvGifts: new Set() };
+function renderGiftPickers(){
+  Object.keys(picks).forEach(id => {
+    const box = $(id), sel = picks[id];
+    const inStock = D.prizes.filter(p => remaining(p) > 0);
+    [...sel].forEach(pid => { if (!inStock.some(p => p.id === pid)) sel.delete(pid); });
+    const sig = JSON.stringify([D.prizes.map(p => [p.id, p.name, remaining(p), !!p.pkg]), [...sel]]);
+    if (box.dataset.sig === sig) return;   // nothing changed: don't rebuild under the user's finger
+    box.dataset.sig = sig;
+    box.textContent = '';
+    const lbl = document.createElement('div'); lbl.className = 'lbl'; lbl.textContent = box.dataset.label; box.appendChild(lbl);
+    inStock.forEach(p => {
+      const l = document.createElement('label'); l.className = 'pick';
+      const c = document.createElement('input'); c.type = 'checkbox'; c.checked = sel.has(p.id);
+      c.addEventListener('change', () => { if (c.checked) sel.add(p.id); else sel.delete(p.id); box.dataset.sig = JSON.stringify([D.prizes.map(q => [q.id, q.name, remaining(q), !!q.pkg]), [...sel]]); });
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = remaining(p);
+      l.append(c, document.createTextNode(p.name), n); box.appendChild(l);
+    });
     const pk = D.prizes.filter(p => p.pkg);
     if (pk.length){
-      const n = Math.min(...pk.map(remaining)), o = document.createElement('option'); o.value = 'package';
-      o.textContent = '🎁 Full package: ' + pk.map(p => p.name).join(' + ') + (n > 0 ? ' (' + n + ' left)' : ' (out of stock)'); o.disabled = n <= 0; sel.appendChild(o);
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'pkgBtn'; b.textContent = '🎁 Full package';
+      b.title = 'Tick ' + pk.map(p => p.name).join(' + ');
+      b.disabled = pk.some(p => remaining(p) <= 0);
+      b.addEventListener('click', () => { pk.forEach(p => sel.add(p.id)); renderGiftPickers(); });
+      box.appendChild(b);
     }
-    D.prizes.forEach(p => { const r = remaining(p); if (r > 0){ const o = document.createElement('option'); o.value = p.id; o.textContent = p.name + ' (' + r + ' left)'; sel.appendChild(o); } });
-    sel.value = [...sel.options].some(o => o.value === keep) ? keep : '';
+    if (!inStock.length){ const e = document.createElement('span'); e.className = 'hint'; e.textContent = 'All souvenirs are out of stock.'; box.appendChild(e); }
   });
 }
 $('tallyPlus').addEventListener('click', () => tally(1));
@@ -503,7 +528,7 @@ function renderAttendees(){
     g.title = 'Give this person a souvenir';
     g.addEventListener('click', () => {
       $('gvWho').value = a.ticket; gvMsg('Choose a souvenir for ' + a.ticket + ' ' + a.name + ', then press Give.', false);
-      $('gvPrize').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('gvPrize').focus();
+      $('gvGifts').scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
     btns.appendChild(g);
     if (a.source === 'Staff'){
@@ -575,7 +600,7 @@ function render(){
   D.attendees.slice(-3000).forEach(a => { const o = document.createElement('option'); o.value = a.name; dl.appendChild(o); });
   $('optNeedReg').checked = !!D.config.needReg; $('optOnePer').checked = !!D.config.onePer;
   document.querySelectorAll('input[name=odds]').forEach(r => { r.checked = r.value === D.config.odds; });
-  renderAttendees(); renderLog(); renderSheet(); renderPrizeSelects(); renderBonusSelect();
+  renderAttendees(); renderLog(); renderSheet(); renderGiftPickers(); renderBonusSelect();
   if (!prizesDirty && prizeIds() !== builtIds && !document.activeElement.classList.contains('pname')) buildPrizeTable();
   refreshLight();
 }

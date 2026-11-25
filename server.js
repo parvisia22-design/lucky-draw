@@ -124,13 +124,14 @@ function createApp(store, env) {
     // optional souvenir in the same step: if it can't be given (out of stock, ...) nobody is added either
     const r = await store.mutate(draft => {
       const attendee = L.staffCheckin(draft, req.body);
-      const prizeId = req.body && req.body.prizeId;
-      return { attendee, draw: prizeId ? L.give(draft, attendee.ticket, prizeId) : null };
+      const sel = req.body && (req.body.prizeIds || req.body.prizeId);
+      const any = Array.isArray(sel) ? sel.length > 0 : !!sel;
+      return { attendee, draw: any ? L.give(draft, attendee.ticket, sel) : null };
     });
     res.json({ attendee: r.attendee, draw: r.draw, state: view(store.get()) });
   }));
   app.post('/api/admin/give', wrap(async (req, res) => {
-    const draw = await store.mutate(draft => L.give(draft, req.body && req.body.who, req.body && req.body.prizeId));
+    const draw = await store.mutate(draft => L.give(draft, req.body && req.body.who, req.body && (req.body.prizeIds || req.body.prizeId)));
     res.json({ draw, state: view(store.get()) });
   }));
   app.delete('/api/admin/attendee/:id', wrap(async (req, res) => {
