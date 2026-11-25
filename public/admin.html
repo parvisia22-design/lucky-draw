@@ -72,9 +72,18 @@
   .empty{color:var(--muted);text-align:center;padding:24px 8px;display:block !important}
   .tally{display:flex;align-items:center;gap:10px}
   .tallyNum{font-size:34px;font-weight:800;min-width:70px;text-align:center}
-  .ciForm{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ciForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
   .ciForm #ciName,.ciForm #ciOrg,.ciForm #ciPrize,.ciForm .btn{grid-column:1/-1}
-  .giveForm{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
+  .giveForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px}
+  /* a long option ("Full package: …") must never widen the panel: Safari sizes selects to their longest option */
+  .field{min-width:0;max-width:100%}
+  select.field{text-overflow:ellipsis}
+  .rowBtns{display:flex;gap:6px;flex:none}
+  @media (max-width:600px){
+    .giveForm{grid-template-columns:1fr}
+    .giveForm .btn,.ciForm .btn{padding:11px;font-size:16px}
+    .field{font-size:16px}   /* 16px stops iPhone from zooming into the field */
+  }
   .given{font-size:11px;font-weight:700;color:#fff;background:#f58746;border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:1px}
   .overlay{position:fixed;inset:0;background:rgba(15,18,24,.62);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
   .overlay.on{display:flex}
@@ -478,10 +487,18 @@ function renderAttendees(){
     const tk = document.createElement('span'); tk.className = 'tk'; tk.textContent = a.ticket; nm.append(tk, document.createTextNode(a.name));
     const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = [a.company, a.phone, a.email, a.source, fmtTime(a.ts)].filter(Boolean).join(' · ');
     left.append(nm, meta); li.appendChild(left);
+    const btns = document.createElement('div'); btns.className = 'rowBtns'; li.appendChild(btns);
+    const g = document.createElement('button'); g.className = 'btn small'; g.textContent = 'Give';
+    g.title = 'Give this person a souvenir';
+    g.addEventListener('click', () => {
+      $('gvWho').value = a.ticket; gvMsg('Choose a souvenir for ' + a.ticket + ' ' + a.name + ', then press Give.', false);
+      $('gvPrize').scrollIntoView({ behavior: 'smooth', block: 'center' }); $('gvPrize').focus();
+    });
+    btns.appendChild(g);
     if (a.source === 'Staff'){
       const x = document.createElement('button'); x.className = 'btn small'; x.textContent = 'Remove';
       x.addEventListener('click', async () => { try{ D = await api('/api/admin/attendee/' + encodeURIComponent(a.id), { method: 'DELETE' }); render(); }catch(e){ ciMsg(e.message, true); } });
-      li.appendChild(x);
+      btns.appendChild(x);
     }
     ul.appendChild(li);
   });
