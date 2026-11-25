@@ -54,7 +54,8 @@ If you change the script later, use Deploy, Manage deployments, Edit, Version: N
 
 - Visitors scan the QR code, fill in the form and read their ticket number.
 - At the wheel, type the ticket number (for example `42` or `0042`) in the box under the wheel, press Enter, and it spins.
-- Visitors without a phone: use the staff check-in in the Attendees tab (tickets look like `A003`).
+- Visitors without a phone: add them in the Attendees tab ("Add an attendee manually"). They get the next ticket number,
+  from the same sequence as the QR sign-ups, shown large on screen to read out.
 - Count people who only stop by with the +1 button.
 - Wrong draw? Press Undo (in the pop-up or the Draw log). The prize goes back into stock.
 - Projector mode hides the side panel so the wheel can be shown on a big screen.

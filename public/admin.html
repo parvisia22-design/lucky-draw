@@ -29,6 +29,9 @@
   .chip.gone{opacity:.45;text-decoration:line-through}
   .dot{width:12px;height:12px;border-radius:50%;flex:none}
   .status{min-height:1.4em;text-align:center;color:var(--muted)}
+  .newTicket{border:2px solid var(--accent);border-radius:var(--radius);padding:10px 14px;text-align:center}
+  .newTicket .num{font-size:44px;font-weight:800;line-height:1.1;color:var(--accent);font-variant-numeric:tabular-nums}
+  .newTicket .who{font-weight:600}
   .status.err{color:var(--danger);font-weight:600}
   .conn{position:absolute;top:14px;left:16px;font-size:12px;color:var(--muted)}
   .conn.bad{color:var(--danger);font-weight:700}
@@ -142,7 +145,7 @@
         <div class="tallyNum" id="tallyNum">0</div>
         <button class="btn primary" id="tallyPlus" aria-label="Plus one">+1 visitor</button>
       </div>
-      <div class="kicker">Check in an attendee (staff)</div>
+      <div class="kicker">Add an attendee manually (gets a ticket number)</div>
       <div class="ciForm">
         <input class="field" id="ciName" placeholder="Name *" autocomplete="off">
         <input class="field" id="ciPhone" placeholder="Phone / WhatsApp" autocomplete="off" inputmode="tel">
@@ -151,13 +154,14 @@
         <button class="btn primary" id="ciAdd">Check in</button>
       </div>
       <div class="status" id="ciMsg" style="text-align:left;min-height:1.2em"></div>
+      <div class="newTicket" id="ciTicket" hidden><div class="hint">Ticket number</div><div class="num" id="ciTicketNum"></div><div class="who" id="ciTicketWho"></div></div>
       <div class="stats" id="ciStats"></div>
       <input class="field" id="ciFilter" placeholder="Search attendees…" autocomplete="off">
       <ul class="list" id="ciList"></ul>
       <div class="row"><a class="btn" href="/api/admin/export.csv?type=attendance">Download attendance CSV</a></div>
       <div class="kicker">Google Sheet</div>
       <div class="row"><div class="hint" id="sheetStatus" style="flex:1"></div><button class="btn small" id="sheetSync" hidden>Sync now</button></div>
-      <div class="hint">Tickets from the QR page look like 0042. Staff check-ins look like A003. Type either in the box under the wheel.</div>
+      <div class="hint">QR sign-ups and manual entries share one number sequence (0001, 0002…). Type the number in the box under the wheel.</div>
     </section>
 
     <section class="pane" id="pane-log">
@@ -392,14 +396,15 @@ $('optOnePer').addEventListener('change', e => saveConfig({ onePer: e.target.che
 $('optSound').addEventListener('change', e => { sound = e.target.checked; });
 
 /* ---------- attendees ---------- */
-function ciMsg(t, err){ const m = $('ciMsg'); m.textContent = t; m.className = 'status' + (err ? ' err' : ''); m.style.textAlign = 'left'; }
+function ciMsg(t, err){ if (err) $('ciTicket').hidden = true; const m = $('ciMsg'); m.textContent = t; m.className = 'status' + (err ? ' err' : ''); m.style.textAlign = 'left'; }
 $('ciAdd').addEventListener('click', addAttendee);
 ['ciName', 'ciPhone', 'ciEmail', 'ciOrg'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addAttendee(); } }));
 async function addAttendee(){
   try{
     const r = await api('/api/admin/attendee', { method: 'POST', body: { name: $('ciName').value, phone: $('ciPhone').value, email: $('ciEmail').value, company: $('ciOrg').value } });
     D = r.state; ['ciName', 'ciPhone', 'ciEmail', 'ciOrg'].forEach(id => $(id).value = '');
-    ciMsg('Checked in: ' + r.attendee.name + ' – ticket ' + r.attendee.ticket, false); render(); $('ciName').focus();
+    ciMsg('', false); $('ciTicketNum').textContent = r.attendee.ticket; $('ciTicketWho').textContent = r.attendee.name; $('ciTicket').hidden = false;
+    render(); $('ciName').focus();
   }catch(e){ ciMsg(e.message, true); }
 }
 $('ciFilter').addEventListener('input', renderAttendees);
