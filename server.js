@@ -102,7 +102,7 @@ function createApp(store, env) {
 
   app.post('/api/admin/spin', wrap(async (req, res) => {
     const r = await store.mutate(draft => L.spin(draft, req.body && req.body.who));
-    res.json({ draw: r.draw, segs: r.segs, winner: r.winner, state: view(store.get()) });
+    res.json({ draw: r.draw, bonus: r.bonus, segs: r.segs, winner: r.winner, state: view(store.get()) });
   }));
   app.post('/api/admin/undo', wrap(async (req, res) => {
     await store.mutate(draft => {
