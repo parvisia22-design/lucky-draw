@@ -56,7 +56,8 @@
   .hint{font-size:12.5px;color:var(--muted)}
   .stats{font-size:13px;background:var(--bg);border-radius:9px;padding:8px 10px}
   .ptable{display:flex;flex-direction:column;gap:6px}
-  .prow{display:grid;grid-template-columns:14px 1fr 70px 52px 28px;gap:8px;align-items:center}
+  .prow{display:grid;grid-template-columns:14px 1fr 70px 52px 34px 28px;gap:8px;align-items:center}
+  .prow .pkg{width:18px;height:18px;justify-self:center;accent-color:#f58746}
   .prow.head{font-size:12px;color:var(--muted);font-weight:600}
   .pname{border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%}
   .left{text-align:center;font-weight:700}
@@ -140,6 +141,7 @@
     <section class="pane on" id="pane-prizes">
       <div class="ptable" id="ptable"></div>
       <div class="row"><button class="btn" id="addPrize">+ Add prize</button></div>
+      <div class="hint">Pkg: tick the items that make up the "Full package" souvenir (one of each is given).</div>
       <div class="stats" id="pstats"></div>
       <div class="kicker">Odds</div>
       <label class="opt"><input type="radio" name="odds" value="stock" checked> By remaining stock – slices are sized by what's left, so every prize runs out at about the same time</label>
@@ -379,7 +381,7 @@ let builtIds = '';
 function buildPrizeTable(){
   const box = $('ptable'); box.textContent = ''; leftEls.clear(); builtIds = prizeIds();
   const head = document.createElement('div'); head.className = 'prow head';
-  ['', 'Prize', 'Stock', 'Left', ''].forEach(t => { const d = document.createElement('div'); d.textContent = t; if (t === 'Left') d.style.textAlign = 'center'; head.appendChild(d); });
+  ['', 'Prize', 'Stock', 'Left', 'Pkg', ''].forEach(t => { const d = document.createElement('div'); d.textContent = t; if (t === 'Left' || t === 'Pkg') d.style.textAlign = 'center'; head.appendChild(d); });
   box.appendChild(head);
   D.prizes.forEach((p, i) => {
     const row = document.createElement('div'); row.className = 'prow';
@@ -389,16 +391,18 @@ function buildPrizeTable(){
     const total = document.createElement('input'); total.type = 'number'; total.min = 0; total.max = 99999; total.value = p.total; total.setAttribute('aria-label', 'Stock');
     total.addEventListener('input', () => { const v = parseInt(total.value, 10); const q = D.prizes.find(x => x.id === p.id); if (q) q.total = Number.isFinite(v) ? Math.max(0, v) : 0; queuePrizeSave(); refreshLight(); });
     const left = document.createElement('div'); left.className = 'left'; leftEls.set(p.id, left);
+    const pkg = document.createElement('input'); pkg.type = 'checkbox'; pkg.className = 'pkg'; pkg.checked = !!p.pkg; pkg.title = 'Part of the full package'; pkg.setAttribute('aria-label', 'In full package');
+    pkg.addEventListener('change', () => { const q = D.prizes.find(x => x.id === p.id); if (q) q.pkg = pkg.checked; savePrizes(false); });
     const x = document.createElement('button'); x.className = 'xbtn'; x.textContent = '×'; x.title = 'Remove prize'; x.setAttribute('aria-label', 'Remove prize');
     x.addEventListener('click', () => { if (spinning || busy) return; D.prizes = D.prizes.filter(q => q.id !== p.id); savePrizes(true); });
-    row.append(dot, name, total, left, x); box.appendChild(row);
+    row.append(dot, name, total, left, pkg, x); box.appendChild(row);
   });
 }
 function queuePrizeSave(){ prizesDirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(() => savePrizes(false), 700); }
 async function savePrizes(rebuild){
   clearTimeout(saveTimer);
   try{
-    const st = await api('/api/admin/prizes', { method: 'PUT', body: { prizes: D.prizes.map(p => ({ id: p.id, name: p.name, total: p.total })) } });
+    const st = await api('/api/admin/prizes', { method: 'PUT', body: { prizes: D.prizes.map(p => ({ id: p.id, name: p.name, total: p.total, pkg: !!p.pkg })) } });
     prizesDirty = false; D = st;
     if (rebuild || prizeIds() !== builtIds) buildPrizeTable();
     render();
@@ -448,6 +452,11 @@ function renderPrizeSelects(){
     if (document.activeElement === sel) return;
     const keep = sel.value; sel.textContent = '';
     const none = document.createElement('option'); none.value = ''; none.textContent = sel.dataset.none; sel.appendChild(none);
+    const pk = D.prizes.filter(p => p.pkg);
+    if (pk.length){
+      const n = Math.min(...pk.map(remaining)), o = document.createElement('option'); o.value = 'package';
+      o.textContent = '🎁 Full package: ' + pk.map(p => p.name).join(' + ') + (n > 0 ? ' (' + n + ' left)' : ' (out of stock)'); o.disabled = n <= 0; sel.appendChild(o);
+    }
     D.prizes.forEach(p => { const r = remaining(p); if (r > 0){ const o = document.createElement('option'); o.value = p.id; o.textContent = p.name + ' (' + r + ' left)'; sel.appendChild(o); } });
     sel.value = [...sel.options].some(o => o.value === keep) ? keep : '';
   });
@@ -499,7 +508,7 @@ function renderLog(){
   for (let i = D.draws.length - 1; i >= 0; i--){
     const d = D.draws[i], li = document.createElement('li'), left = document.createElement('div');
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = d.prizeName;
-    if (d.how === 'Given'){ const g = document.createElement('span'); g.className = 'given'; g.textContent = 'GIVEN'; nm.appendChild(g); }
+    if (d.how === 'Given' || d.how === 'Package'){ const g = document.createElement('span'); g.className = 'given'; g.textContent = d.how === 'Package' ? 'PACKAGE' : 'GIVEN'; nm.appendChild(g); }
     const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = '#' + (i + 1) + ' · ' + [d.ticket, d.name || 'No name', fmtTime(d.ts)].filter(Boolean).join(' · ');
     left.append(nm, meta);
     const u = document.createElement('button'); u.className = 'btn small'; u.textContent = 'Undo';

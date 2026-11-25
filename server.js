@@ -106,9 +106,9 @@ function createApp(store, env) {
   }));
   app.post('/api/admin/undo', wrap(async (req, res) => {
     await store.mutate(draft => {
-      const i = draft.draws.findIndex(d => d.id === (req.body && req.body.id));
-      if (i < 0) throw new L.HttpError(404, 'That draw no longer exists.');
-      draft.draws.splice(i, 1);
+      const d = draft.draws.find(x => x.id === (req.body && req.body.id));
+      if (!d) throw new L.HttpError(404, 'That draw no longer exists.');
+      draft.draws = draft.draws.filter(x => x !== d && !(d.group && x.group === d.group));   // a package is undone as a whole
     });
     res.json(view(store.get()));
   }));
