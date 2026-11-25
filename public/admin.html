@@ -145,7 +145,7 @@
         <div class="tallyNum" id="tallyNum">0</div>
         <button class="btn primary" id="tallyPlus" aria-label="Plus one">+1 visitor</button>
       </div>
-      <div class="kicker">Add an attendee manually (gets a ticket number)</div>
+      <div class="kicker">Add an attendee manually (gets an M ticket)</div>
       <div class="ciForm">
         <input class="field" id="ciName" placeholder="Name *" autocomplete="off">
         <input class="field" id="ciPhone" placeholder="Phone / WhatsApp" autocomplete="off" inputmode="tel">
@@ -161,7 +161,7 @@
       <div class="row"><a class="btn" href="/api/admin/export.csv?type=attendance">Download attendance CSV</a></div>
       <div class="kicker">Google Sheet</div>
       <div class="row"><div class="hint" id="sheetStatus" style="flex:1"></div><button class="btn small" id="sheetSync" hidden>Sync now</button></div>
-      <div class="hint">QR sign-ups and manual entries share one number sequence (0001, 0002…). Type the number in the box under the wheel.</div>
+      <div class="hint">QR sign-ups get QR001, QR002…; manual entries get M001, M002…. At the wheel type QR5, M5, or just 5 if only one of them exists.</div>
     </section>
 
     <section class="pane" id="pane-log">
